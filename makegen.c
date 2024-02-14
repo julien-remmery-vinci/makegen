@@ -52,8 +52,8 @@ char** getHeaderFiles(char* filename, int nbFiles){
 			for (int i = QUOTE_POS+1; buff[i] != '.'; i++, nbC++)
 				name[nbC] = buff[i];
 			name[nbC] = '\0';
-			requiredFiles[i] = (char*) malloc((strlen(name)+1)*sizeof(char));
-			if(requiredFiles[i] == NULL) exit(1);
+			requiredFiles[i] = (char*) malloc((nbC+1)*sizeof(char));
+			if(requiredFiles[i] == NULL) return NULL;
 			strcpy(requiredFiles[i], name);
 			i++;
 		}
