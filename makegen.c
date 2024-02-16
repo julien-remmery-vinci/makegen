@@ -22,8 +22,8 @@ void getNbFiles(char* filename, int* nbFiles){
 	//Get number of files
 	char buff[MAX_LENGTH+1];
 	while(fgets(buff, MAX_LENGTH, fptr)){
-		if(buff[0] == '\n') break;
-		if(buff[QUOTE_POS] == '"') (*nbFiles)++;
+		if(buff[0] == '#' && buff[QUOTE_POS] == '"')
+			(*nbFiles)++;
 	}
 	//Close file
 	fclose(fptr);
@@ -44,18 +44,22 @@ char** getHeaderFiles(char* filename, int nbFiles){
 	//Get files names
 	char buff[MAX_LENGTH+1];
 	int i = 0;
+	int filesFound = 0;
 	while(fgets(buff, MAX_LENGTH, fptr)){
-		if(buff[0] == '\n') break;
-		if(buff[0] == '#' && buff[QUOTE_POS] == '"'){
-			char name[MAX_LENGTH];
-			int nbC = 0;
-			for (int i = QUOTE_POS+1; buff[i] != '.'; i++, nbC++)
-				name[nbC] = buff[i];
-			name[nbC] = '\0';
-			requiredFiles[i] = (char*) malloc((nbC+1)*sizeof(char));
-			if(requiredFiles[i] == NULL) return NULL;
-			strcpy(requiredFiles[i], name);
-			i++;
+		if(buff[0] == '#') {
+			if(buff[QUOTE_POS] == '"'){
+				char name[MAX_LENGTH];
+				int nbC = 0;
+				for (int j = QUOTE_POS+1; buff[j] != '.'; j++, nbC++)
+					name[nbC] = buff[j];
+				name[nbC] = '\0';
+				requiredFiles[i] = (char*) malloc((nbC+1)*sizeof(char));
+				if(requiredFiles[i] == NULL) return NULL;
+				strcpy(requiredFiles[i], name);
+				i++;
+				filesFound++;
+			}
+			if(filesFound == nbFiles) break;
 		}
 	}
 	//Close file
@@ -147,7 +151,7 @@ int main(int argc, char *argv[]){
 			addFile(&filesToCompile, filename, &nbToCompile);
 
 		for (int i = 0; i < nbFiles; i++){
-			char s[MAX_LENGTH];
+			char s[MAX_LENGTH+1];
 			sprintf(s, " %s.o", requiredFiles[i]);
 			strcat(reqStr, s);
 			if(!containsFile(filesToCompile, requiredFiles[i], nbToCompile))
