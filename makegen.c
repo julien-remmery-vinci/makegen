@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <string.h>
 #include <stdbool.h>
 
 #define QUOTE_POS 9
@@ -45,7 +44,7 @@ char** getHeaderFiles(char* filename, int nbFiles){
 	char buff[MAX_LENGTH+1];
 	int i = 0;
 	int filesFound = 0;
-	while(fgets(buff, MAX_LENGTH, fptr)){
+	while(fgets(buff, MAX_LENGTH, fptr) && filesFound < nbFiles){
 		if(buff[0] == '#') {
 			if(buff[QUOTE_POS] == '"'){
 				char name[MAX_LENGTH];
@@ -59,7 +58,6 @@ char** getHeaderFiles(char* filename, int nbFiles){
 				i++;
 				filesFound++;
 			}
-			if(filesFound == nbFiles) break;
 		}
 	}
 	//Close file
@@ -188,4 +186,6 @@ int main(int argc, char *argv[]){
 
 	//Close file
 	fclose(fptr);
+
+	printf("Makegen succeeded\nFile available as 'Makefile'\n");
 }
