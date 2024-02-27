@@ -6,6 +6,7 @@
 #define QUOTE_POS 9
 #define MAX_LENGTH 255
 #define MAX_TAB_LENGTH 255
+#define GENERATED_NAME "Makefile"
 #define TOP_TEXT "# made using makegen by julien.r\n"
 
 /* 
@@ -33,8 +34,19 @@ void getNbFiles(char* filename, int* nbFiles){
  		 nbFiles  : the number of header files
  * Res : returns an array containing the header files names
  */
-char** getHeaderFiles(char* filename, int nbFiles){
-	char** requiredFiles = (char**) malloc(nbFiles*sizeof(char*));
+char** getHeaderFiles(char* filename, int* nbFiles){
+	int nbFound; 
+	getNbFiles(filename, &nbFound);
+	*nbFiles = nbFound;
+	if(nbFound == 0) {
+		char** requiredFiles = (char**) malloc(1*sizeof(char*));
+		if(requiredFiles == NULL) return NULL;
+		requiredFiles[0] = (char*) malloc((strlen(filename))*sizeof(char));
+		if(requiredFiles[0] == NULL) return NULL;
+		strcpy(requiredFiles[0], filename);
+		return requiredFiles;
+	}
+	char** requiredFiles = (char**) malloc(nbFound*sizeof(char*));
 	if(requiredFiles == NULL) return NULL;
 
 	//Open c source file (read mode)
@@ -44,7 +56,7 @@ char** getHeaderFiles(char* filename, int nbFiles){
 	char buff[MAX_LENGTH+1];
 	int i = 0;
 	int filesFound = 0;
-	while(fgets(buff, MAX_LENGTH, fptr) && filesFound < nbFiles){
+	while(fgets(buff, MAX_LENGTH, fptr) && filesFound < nbFound){
 		if(buff[0] == '#') {
 			if(buff[QUOTE_POS] == '"'){
 				char name[MAX_LENGTH];
@@ -60,6 +72,7 @@ char** getHeaderFiles(char* filename, int nbFiles){
 			}
 		}
 	}
+	*nbFiles = nbFound;
 	//Close file
 	fclose(fptr);
 	return requiredFiles;
@@ -89,7 +102,12 @@ int main(int argc, char *argv[]){
 	}
 
 	//Open or create makefile (write mode)
-	FILE* fptr = fopen("Makefile", "w");
+	FILE* fptr = fopen(GENERATED_NAME, "w");
+	if(fptr == NULL) {
+		fprintf(stderr, "Error : Could not create Makefile file\n");
+		exit(1);
+	}
+
 	fputs(TOP_TEXT, fptr);
 
 	//Add flags
@@ -98,7 +116,7 @@ int main(int argc, char *argv[]){
 	//Add all rule if necessary
 	if(nbExec > 1){
 		char allRule[MAX_LENGTH];
-		sprintf(allRule, "all : ");
+		sprintf(allRule, "all: ");
 		for (int i = 1; i < argc; ++i){
 			char filename[strlen(argv[i])];
 			strcpy(filename, argv[i]);
@@ -120,8 +138,6 @@ int main(int argc, char *argv[]){
 	}
 
 	//Add linker
-	fprintf(fptr, "# Linker\n");
-
 	for (int i = 1; i <= nbExec; ++i){
 		//Get filename from args
 		char filename[strlen(argv[i])];
@@ -129,50 +145,70 @@ int main(int argc, char *argv[]){
 
 		//Get header files count and names
 		int nbFiles;
-		getNbFiles(filename, &nbFiles);
-		char** requiredFiles = getHeaderFiles(filename, nbFiles);
+		char** requiredFiles = getHeaderFiles(filename, &nbFiles);
 		if(requiredFiles == NULL){
-			fprintf(stderr, "Error : Malloc error\n");
-			exit(1);
-		}
-		//No header file found
-		if(nbFiles == 0){
-			fprintf(stderr, "Error : No header file found\n");
+			fprintf(stderr, "Error : error while getting files\n");
 			exit(1);
 		}
 
-		//Build the string with needed .o files
-		char reqStr[MAX_LENGTH];
-		sprintf(reqStr, "%s.o", strtok(filename, "."));
-
-		if(!containsFile(filesToCompile, filename, nbToCompile))
-			addFile(&filesToCompile, filename, &nbToCompile);
-
-		for (int i = 0; i < nbFiles; i++){
-			char s[MAX_LENGTH+1];
-			sprintf(s, " %s.o", requiredFiles[i]);
-			strcat(reqStr, s);
-			if(!containsFile(filesToCompile, requiredFiles[i], nbToCompile))
-				addFile(&filesToCompile, requiredFiles[i], &nbToCompile);
+		//nbFiles = number of header files found in provided file
+		if(nbFiles == 0) {
+			char c[MAX_LENGTH];
+			sprintf(c, "%s", strtok(requiredFiles[0], "."));
+			fprintf(fptr, "%s: %s.o\n", c,c);
+			fprintf(fptr, "\tcc $(CFLAGS) -o %s %s.o\n\n", c, c);
 		}
+		//Look for header files in files found
+		else {
+			for (int j = 0; j < nbFiles; ++j) {
+				int nbHeaderFiles;
+				char fName[strlen(requiredFiles[j])];
+				strcpy(fName, requiredFiles[j]);
+				strcat(fName, ".c");
+				char** requiredHeaderFiles = getHeaderFiles(fName, &nbHeaderFiles);
+				if(requiredHeaderFiles == NULL && nbHeaderFiles > 0){
+					fprintf(stderr, "Error : error while getting files\n");
+					exit(1);
+				}
+				for (int k = 0; k < nbHeaderFiles; ++k)
+				{
+					if(!containsFile(requiredFiles, requiredHeaderFiles[k], nbFiles))
+						addFile(&requiredFiles, requiredHeaderFiles[k], &nbFiles);
+					if(!containsFile(filesToCompile, requiredHeaderFiles[k], nbToCompile))
+						addFile(&filesToCompile, requiredHeaderFiles[k], &nbToCompile);
+				}
+			}
+			//Build the string with needed .o files
+			char reqStr[MAX_LENGTH];
+			sprintf(reqStr, "%s.o", strtok(filename, "."));
 
-		fprintf(fptr, "%s : %s\n", filename, reqStr);
-		fprintf(fptr, "\tcc $(CFLAGS) -o %s %s\n\n", filename, reqStr);
+			if(!containsFile(filesToCompile, filename, nbToCompile))
+				addFile(&filesToCompile, filename, &nbToCompile);
 
-		for (int i = 0; i < nbFiles; ++i)
-			free(requiredFiles[i]);
-		free(requiredFiles);
+			for (int i = 0; i < nbFiles; i++){
+				char s[MAX_LENGTH+1];
+				sprintf(s, " %s.o", requiredFiles[i]);
+				strcat(reqStr, s);
+				if(!containsFile(filesToCompile, requiredFiles[i], nbToCompile))
+					addFile(&filesToCompile, requiredFiles[i], &nbToCompile);
+			}
 
-		strcat(toBeCleaned, filename);
-		strcat(toBeCleaned, " ");
+			fprintf(fptr, "%s: %s\n", filename, reqStr);
+			fprintf(fptr, "\tcc $(CFLAGS) -o %s %s\n\n", filename, reqStr);
 
+			for (int i = 0; i < nbFiles; ++i)
+				free(requiredFiles[i]);
+			free(requiredFiles);
+
+			strcat(toBeCleaned, filename);
+			strcat(toBeCleaned, " ");
+		}
 	}
 
 	//Add compilation
-	fprintf(fptr, "# Compilation\n");
 
 	for (int i = 0; i < nbToCompile; ++i){
-		fprintf(fptr, "%s.o : %s.c\n", filesToCompile[i], filesToCompile[i]);
+		fprintf(fptr, "%s.o: %s.c\n", filesToCompile[i], filesToCompile[i]);
 		fprintf(fptr, "\tcc $(CFLAGS) -c %s.c\n\n", filesToCompile[i]);
 	}
 
@@ -181,7 +217,7 @@ int main(int argc, char *argv[]){
 	free(filesToCompile);
 
 	//Add clean rule
-	fprintf(fptr, "clean :\n");
+	fprintf(fptr, "clean:\n");
 	fprintf(fptr, "\trm *.o %s\n", toBeCleaned);
 
 	//Close file
