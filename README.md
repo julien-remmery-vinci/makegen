@@ -20,7 +20,7 @@ gcc -o makegen makegen.c
 
 Place the generated executable in a file which path is contained in PATH env variable.
 
-See the already added directories.
+See the already added directories:
 ```shell
 echo $PATH
 ```
