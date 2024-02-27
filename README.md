@@ -1,5 +1,7 @@
 # makegen
 
+If you want to help me upgrade this, you are welcome !
+
 ## QuickStart
 
 **1. Compile**
