@@ -104,7 +104,7 @@ int main(int argc, char *argv[]){
 	//Open or create makefile (write mode)
 	FILE* fptr = fopen(GENERATED_NAME, "w");
 	if(fptr == NULL) {
-		fprintf(stderr, "Error : Could not create Makefile file\n");
+		fprintf(stderr, "Error : Could not create %s file\n", GENERATED_NAME);
 		exit(1);
 	}
 
@@ -118,7 +118,12 @@ int main(int argc, char *argv[]){
 		char allRule[MAX_LENGTH];
 		sprintf(allRule, "all: ");
 		for (int i = 1; i < argc; ++i){
-			char filename[strlen(argv[i])];
+			int size = strlen(argv[i]);
+			char* filename = (char*) malloc(size*sizeof(char));
+			if(filename == NULL){
+				fprintf(stderr, "Error : Malloc error\n");
+				exit(1);
+			}
 			strcpy(filename, argv[i]);
 			strcat(allRule, strtok(filename, "."));
 			strcat(allRule, " ");
@@ -138,9 +143,15 @@ int main(int argc, char *argv[]){
 	}
 
 	//Add linker
+	bool oFilesToClean;
 	for (int i = 1; i <= nbExec; ++i){
 		//Get filename from args
-		char filename[strlen(argv[i])];
+		int size = strlen(argv[i]);
+		char* filename = (char*) malloc(size*sizeof(char));
+		if(filename == NULL){
+			fprintf(stderr, "Error : Malloc error\n");
+			exit(1);
+		}
 		sprintf(filename, "%s", argv[i]);
 
 		//Get header files count and names
@@ -155,14 +166,21 @@ int main(int argc, char *argv[]){
 		if(nbFiles == 0) {
 			char c[MAX_LENGTH];
 			sprintf(c, "%s", strtok(requiredFiles[0], "."));
-			fprintf(fptr, "%s: %s.o\n", c,c);
-			fprintf(fptr, "\tcc $(CFLAGS) -o %s %s.o\n\n", c, c);
+			fprintf(fptr, "%s:\n", c);
+			fprintf(fptr, "\tcc $(CFLAGS) -o %s %s.c\n\n", c, c);
+			strcat(toBeCleaned, requiredFiles[0]);
+			strcat(toBeCleaned, " ");
 		}
 		//Look for header files in files found
 		else {
 			for (int j = 0; j < nbFiles; ++j) {
 				int nbHeaderFiles;
-				char fName[strlen(requiredFiles[j])];
+				size = strlen(requiredFiles[j]);
+				char* fName = (char*) malloc(size*sizeof(char));
+				if(fName == NULL){
+					fprintf(stderr, "Error : Malloc error\n");
+					exit(1);
+				}
 				strcpy(fName, requiredFiles[j]);
 				strcat(fName, ".c");
 				char** requiredHeaderFiles = getHeaderFiles(fName, &nbHeaderFiles);
@@ -195,6 +213,7 @@ int main(int argc, char *argv[]){
 
 			fprintf(fptr, "%s: %s\n", filename, reqStr);
 			fprintf(fptr, "\tcc $(CFLAGS) -o %s %s\n\n", filename, reqStr);
+			oFilesToClean = true;
 
 			for (int i = 0; i < nbFiles; ++i)
 				free(requiredFiles[i]);
@@ -218,10 +237,11 @@ int main(int argc, char *argv[]){
 
 	//Add clean rule
 	fprintf(fptr, "clean:\n");
-	fprintf(fptr, "\trm *.o %s\n", toBeCleaned);
+	if(oFilesToClean) fprintf(fptr, "\trm *.o\n");
+	fprintf(fptr, "\trm %s\n", toBeCleaned);
 
 	//Close file
 	fclose(fptr);
 
-	printf("Makegen succeeded\nFile available as 'Makefile'\n");
+	printf("Makegen succeeded\nFile available as '%s'\n", GENERATED_NAME);
 }
