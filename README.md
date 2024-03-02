@@ -6,17 +6,7 @@ If you want to help me upgrade this, you are welcome !
 
 **1. Compile**
 
-User your favorite compiler.
-
-```shell
-gcc makegen.c
-```
-
-...or give it a prefered name:
-
-```shell
-gcc -o makegen makegen.c
-```
+Use provided makefile to compile.
 
 **2. Make it accessible**
 
